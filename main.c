@@ -44,9 +44,18 @@ int main(){
 
     // Setup the TCP listening socket
     r = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+    freeaddrinfo(result);
     if(r == SOCKET_ERROR){
         printf("bind failed: %d\n", WSAGetLastError());
-        freeaddrinfo(result);
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Setup listening on ListenSocket
+    r = listen(ListenSocket, SOMAXCONN);
+    if(r == SOCKET_ERROR){
+        printf("listen failed: %d\n", WSAGetLastError());
         closesocket(ListenSocket);
         WSACleanup();
         return 1;
