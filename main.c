@@ -8,7 +8,7 @@
 
 int main(){
     struct addrinfo *result = NULL, hints;
-    SOCKET ListenSocket = INVALID_SOCKET;
+    SOCKET ListenSocket = INVALID_SOCKET, ClientSocket = INVALID_SOCKET;
     WSADATA wsaData;
     int r;
 
@@ -61,7 +61,16 @@ int main(){
         return 1;
     }
 
-    freeaddrinfo(result);
+    // Accept a client socket
+    ClientSocket = accept(ListenSocket, NULL, NULL);
+    if(ClientSocket == INVALID_SOCKET){
+        printf("accept failed: %d\n", WSAGetLastError());
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    closesocket(ClientSocket);
     closesocket(ListenSocket);
     WSACleanup();
     return -0;
