@@ -16,7 +16,7 @@ int main(){
     r = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if(r != 0){
         printf("WSAStartup failed: %d\n", r);
-        return -1;
+        return 1;
     }
 
     // Resolve the local address ad prot to be used by the server
@@ -30,18 +30,30 @@ int main(){
     if(r != 0){
         printf("getaddrinfo failed: %d\n", r);
         WSACleanup();
-        return -1;
+        return 1;
     }
 
     // Create a socket for the server to listen for client connections
     ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if(ListenSocket == INVALID_SOCKET){
-        printf("Error at socket(): %ld\n", WSAGetLastError());
+        printf("socket failed: %d\n", WSAGetLastError());
         freeaddrinfo(result);
         WSACleanup();
         return 1;
     }
 
+    // Setup the TCP listening socket
+    r = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+    if(r == SOCKET_ERROR){
+        printf("bind failed: %d\n", WSAGetLastError());
+        freeaddrinfo(result);
+        closesocket(ListenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    freeaddrinfo(result);
+    closesocket(ListenSocket);
     WSACleanup();
     return -0;
 }
