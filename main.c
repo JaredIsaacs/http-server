@@ -1,7 +1,12 @@
-#include <stdio.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <ws2tcpip.h>
 #include <winsock2.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #pragma(lib, "Ws2_32.lib")
 
@@ -10,7 +15,7 @@
 
 void* handle_client(void *args);
 
-void get_requested_file(char *recvbuf, char *file_name);
+char* get_requested_file(char *recvbuf);
 
 void create_http_response();
 
@@ -100,14 +105,14 @@ void* handle_client(void *arg){
                             "Connection: close\r\n"
                             "Content-Type: text/html\r\n\r\n"
                             "<h1> Server test </h1>";
-    char file_name[64] = "";
+    char *file_name;
     int recvbuflen = BUFLEN;
     int r, sendr;
 
     r = recv(ClientSocket, recvbuf, recvbuflen, 0);
     if(r > 0 && strstr(recvbuf, "GET")){
-        printf("----------\nBytes received: %d\n----------\n%s", r, recvbuf);
-        get_requested_file(recvbuf, file_name);
+        //printf("----------\nBytes received: %d\n----------\n%s", r, recvbuf);
+        file_name = get_requested_file(recvbuf);
         sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
         if (sendr == SOCKET_ERROR){
             printf("send failed: %d\n", WSAGetLastError());
@@ -121,11 +126,25 @@ void* handle_client(void *arg){
     return NULL;
 }
 
-void get_requested_file(char *recvbuf, char *file_name){
-    char *temp;
+char* get_requested_file(char* recvbuf) {
+    char* temp;
+    char* file_name;
     int size;
 
     temp = strchr(recvbuf, '/');
+    if (temp == NULL) {
+        return NULL;
+    }
+    
     size = strcspn(temp, " ");
-    strncat(file_name, temp, size);
+
+    file_name = malloc(size + 1);
+    if (file_name == NULL) {
+        return NULL;
+    }
+
+    strncpy(file_name, temp, size);
+    file_name[size] = '\0';
+
+    return file_name;
 }
