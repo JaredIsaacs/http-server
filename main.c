@@ -1,15 +1,21 @@
 #include <stdio.h>
 #include <ws2tcpip.h>
 #include <winsock2.h>
+#include <pthread.h>
 
 #pragma(lib, "Ws2_32.lib")
 
 #define HTTP_PORT "80"
+#define BUFLEN 1024
+
+void* handle_client(void *args);
 
 int main(){
     struct addrinfo *result = NULL, hints;
     SOCKET ListenSocket = INVALID_SOCKET, ClientSocket = INVALID_SOCKET;
     WSADATA wsaData;
+    char recvbuf[BUFLEN];
+    int recvbuflen = BUFLEN;
     int r;
 
     // Initialize Winsock
@@ -44,13 +50,15 @@ int main(){
 
     // Setup the TCP listening socket
     r = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
-    freeaddrinfo(result);
     if(r == SOCKET_ERROR){
         printf("bind failed: %d\n", WSAGetLastError());
+        freeaddrinfo(result);
         closesocket(ListenSocket);
         WSACleanup();
         return 1;
     }
+
+    freeaddrinfo(result);
 
     // Setup listening on ListenSocket
     r = listen(ListenSocket, SOMAXCONN);
@@ -61,17 +69,50 @@ int main(){
         return 1;
     }
 
-    // Accept a client socket
-    ClientSocket = accept(ListenSocket, NULL, NULL);
-    if(ClientSocket == INVALID_SOCKET){
-        printf("accept failed: %d\n", WSAGetLastError());
-        closesocket(ListenSocket);
-        WSACleanup();
-        return 1;
+    // loop that accepts client sockets
+    while(1){
+        ClientSocket = accept(ListenSocket, NULL, NULL);
+        if(ClientSocket == INVALID_SOCKET){
+            printf("accept failed: %d\n", WSAGetLastError());
+            continue;
+        }
+
+        pthread_t t_id;
+        pthread_create(&t_id, NULL, handle_client, (void *)&ClientSocket);
+        pthread_detach(t_id);
     }
 
-    closesocket(ClientSocket);
+    puts("Shutting down...");
+
     closesocket(ListenSocket);
     WSACleanup();
     return 0;
+}
+
+void* handle_client(void *arg){
+    SOCKET ClientSocket = *((SOCKET *) arg);
+    char recvbuf[BUFLEN];
+    char *sendbuf = 
+        "HTTP/1.1 200 OK\r\n"
+        "Connection: close\r\n"
+        "Content-Type: text/html\r\n\r\n"
+        "<h1> Server test </h1>";
+    int recvbuflen = BUFLEN;
+    int r, sendr;
+
+    r = recv(ClientSocket, recvbuf, recvbuflen, 0);
+    if(r > 0){
+        printf("----------\nBytes received: %d\n----------\n%s", r, recvbuf);
+
+        sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
+        if (sendr == SOCKET_ERROR){
+            printf("send failed: %d\n", WSAGetLastError());
+        }
+        printf("Bytes sent: %d\n", sendr);
+    }else if(r < 0){
+        printf("recv failed: %d\n", WSAGetLastError());
+    }
+
+    closesocket(ClientSocket);
+    return NULL;
 }
