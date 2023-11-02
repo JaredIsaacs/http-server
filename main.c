@@ -10,6 +10,10 @@
 
 void* handle_client(void *args);
 
+void get_requested_file(char *recvbuf, char *file_name);
+
+void create_http_response();
+
 int main(){
     struct addrinfo *result = NULL, hints;
     SOCKET ListenSocket = INVALID_SOCKET, ClientSocket = INVALID_SOCKET;
@@ -91,19 +95,19 @@ int main(){
 
 void* handle_client(void *arg){
     SOCKET ClientSocket = *((SOCKET *) arg);
-    char recvbuf[BUFLEN];
-    char *sendbuf = 
-        "HTTP/1.1 200 OK\r\n"
-        "Connection: close\r\n"
-        "Content-Type: text/html\r\n\r\n"
-        "<h1> Server test </h1>";
+    char recvbuf[BUFLEN], *sendbuf = 
+                            "HTTP/1.1 200 OK\r\n"
+                            "Connection: close\r\n"
+                            "Content-Type: text/html\r\n\r\n"
+                            "<h1> Server test </h1>";
+    char file_name[64] = "";
     int recvbuflen = BUFLEN;
     int r, sendr;
 
     r = recv(ClientSocket, recvbuf, recvbuflen, 0);
-    if(r > 0){
+    if(r > 0 && strstr(recvbuf, "GET")){
         printf("----------\nBytes received: %d\n----------\n%s", r, recvbuf);
-
+        get_requested_file(recvbuf, file_name);
         sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
         if (sendr == SOCKET_ERROR){
             printf("send failed: %d\n", WSAGetLastError());
@@ -115,4 +119,13 @@ void* handle_client(void *arg){
 
     closesocket(ClientSocket);
     return NULL;
+}
+
+void get_requested_file(char *recvbuf, char *file_name){
+    char *temp;
+    int size;
+
+    temp = strchr(recvbuf, '/');
+    size = strcspn(temp, " ");
+    strncat(file_name, temp, size);
 }
