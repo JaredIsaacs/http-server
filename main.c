@@ -73,5 +73,5 @@ int main(){
     closesocket(ClientSocket);
     closesocket(ListenSocket);
     WSACleanup();
-    return -0;
+    return 0;
 }
