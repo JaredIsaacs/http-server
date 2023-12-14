@@ -15,9 +15,11 @@
 
 void* handle_client(void *args);
 
-char* get_requested_file(char *recvbuf);
+char* get_file_name(char *recvbuf);
 
-void create_http_response();
+char* get_file_extension(char *file_name);
+
+void build_response();
 
 int main(){
     struct addrinfo *result = NULL, hints;
@@ -111,9 +113,14 @@ void* handle_client(void *arg){
 
     r = recv(ClientSocket, recvbuf, recvbuflen, 0);
     if(r > 0 && strstr(recvbuf, "GET")){
-        //printf("----------\nBytes received: %d\n----------\n%s", r, recvbuf);
-        file_name = get_requested_file(recvbuf);
+        //Get File name
+        file_name = get_file_name(recvbuf);
         sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
+
+        //Get file extension  
+        char file_ext[32];
+        strcpy(file_ext, get_file_extension(file_name));
+
         if (sendr == SOCKET_ERROR){
             printf("send failed: %d\n", WSAGetLastError());
         }
@@ -121,12 +128,13 @@ void* handle_client(void *arg){
     }else if(r < 0){
         printf("recv failed: %d\n", WSAGetLastError());
     }
-
+    
+    free(file_name);
     closesocket(ClientSocket);
     return NULL;
 }
 
-char* get_requested_file(char* recvbuf) {
+char* get_file_name(char* recvbuf) {
     char* temp;
     char* file_name;
     int size;
@@ -147,4 +155,12 @@ char* get_requested_file(char* recvbuf) {
     file_name[size] = '\0';
 
     return file_name;
+}
+
+char* get_file_extension(char *file_name){
+  char* ext = strrchr(file_name, '.');
+  if(!ext || ext == file_name){
+    return "";
+  }
+  return ext + 1;
 }
