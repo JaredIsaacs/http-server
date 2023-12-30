@@ -13,13 +13,15 @@
 #define HTTP_PORT "80"
 #define BUFLEN 1024
 
+int get_file_len(FILE *file);
+
 void* handle_client(void *args);
 
 char* get_file_name(char *recvbuf);
 
 char* get_file_extension(char *file_name);
 
-void build_response();
+char* get_file_content(char *file_name);
 
 int main(){
     struct addrinfo *result = NULL, hints;
@@ -29,7 +31,6 @@ int main(){
     int recvbuflen = BUFLEN;
     int r;
 
-    // Initialize Winsock
     r = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if(r != 0){
         printf("WSAStartup failed: %d\n", r);
@@ -102,11 +103,7 @@ int main(){
 
 void* handle_client(void *arg){
     SOCKET ClientSocket = *((SOCKET *) arg);
-    char recvbuf[BUFLEN], *sendbuf = 
-                            "HTTP/1.1 200 OK\r\n"
-                            "Connection: close\r\n"
-                            "Content-Type: text/html\r\n\r\n"
-                            "<h1> Server test </h1>";
+    char recvbuf[BUFLEN], *sendbuf;
     char *file_name;
     int recvbuflen = BUFLEN;
     int r, sendr;
@@ -115,8 +112,11 @@ void* handle_client(void *arg){
     if(r > 0 && strstr(recvbuf, "GET")){
         //Get File name
         file_name = get_file_name(recvbuf);
-        sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
-
+        sendbuf = get_file_content(file_name);
+        if (sendbuf != NULL){
+            sendr = send(ClientSocket, sendbuf, strlen(sendbuf), 0);
+            free(sendbuf);
+        }
         //Get file extension  
         char file_ext[32];
         strcpy(file_ext, get_file_extension(file_name));
@@ -132,6 +132,16 @@ void* handle_client(void *arg){
     free(file_name);
     closesocket(ClientSocket);
     return NULL;
+}
+
+int get_file_len(FILE *file){
+    int len;
+    
+    fseek(file, 0, SEEK_END);
+    len = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    return len;
 }
 
 char* get_file_name(char* recvbuf) {
@@ -154,13 +164,38 @@ char* get_file_name(char* recvbuf) {
     strncpy(file_name, temp, size);
     file_name[size] = '\0';
 
+    if (strcmp(file_name, "/") == 0){
+        strncpy(file_name, "/index.html", 11);
+    }
+
     return file_name;
 }
 
 char* get_file_extension(char *file_name){
-  char* ext = strrchr(file_name, '.');
-  if(!ext || ext == file_name){
-    return "";
-  }
-  return ext + 1;
+    char* ext = strrchr(file_name, '.');
+    if(!ext || ext == file_name){
+        return "";
+    }
+    return ext + 1;
+}
+
+char* get_file_content(char *file_name){
+    FILE *html = fopen(file_name + 1, "r");
+
+    if (html == NULL){
+        return NULL;
+    }
+
+    int len = get_file_len(html);
+    char *send_file = (char *)malloc(len + 1);
+    char c;
+
+    for (int i = 0; i < len; i++) {
+        c = fgetc(html);
+        send_file[i] = c;
+    }
+    send_file[len] = '\0';
+
+    fclose(html);
+    return send_file;
 }
