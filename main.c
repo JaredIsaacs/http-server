@@ -125,11 +125,11 @@ void* handle_client(void *arg){
             printf("send failed: %d\n", WSAGetLastError());
         }
         printf("Bytes sent: %d\n", sendr);
+        free(file_name);
     }else if(r < 0){
         printf("recv failed: %d\n", WSAGetLastError());
     }
     
-    free(file_name);
     closesocket(ClientSocket);
     return NULL;
 }
